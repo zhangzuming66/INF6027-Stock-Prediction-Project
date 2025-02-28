@@ -1,154 +1,114 @@
-# 1. Data Preparation and Cleaning
-# Install necessary libraries 
-install.packages(c("dplyr", "ggplot2", "caret", "pROC", "tidyr", "reshape2"))
+# Load the necessary libraries
+library(tidyverse)
 
-# Load the libraries
-library(dplyr)
-library(ggplot2)
-library(caret)
-library(pROC)
-library(tidyr)
-library(reshape2)
+# Load the datasets for 2014-2018
+df_2014 <- read.csv("2014_Financial_Data.csv")
+df_2015 <- read.csv("2015_Financial_Data.csv")
+df_2016 <- read.csv("2016_Financial_Data.csv")
+df_2017 <- read.csv("2017_Financial_Data.csv")
+df_2018 <- read.csv("2018_Financial_Data.csv")
 
-# Load the dataset
-data <- read.csv("2014_Financial_Data.csv")
+# Handle missing data by replacing NA values with 0
+df_2014_clean <- df_2014 %>% mutate(across(everything(), ~replace(., is.na(.), 0)))
+df_2015_clean <- df_2015 %>% mutate(across(everything(), ~replace(., is.na(.), 0)))
+df_2016_clean <- df_2016 %>% mutate(across(everything(), ~replace(., is.na(.), 0)))
+df_2017_clean <- df_2017 %>% mutate(across(everything(), ~replace(., is.na(.), 0)))
+df_2018_clean <- df_2018 %>% mutate(across(everything(), ~replace(., is.na(.), 0)))
 
-# Rename the first column to "Stock Code" (since it is empty)
-colnames(data)[1] <- "Stock Code"
+# For example, we can set all data frames to have the same column names as the 2014 data frame.
+colnames(df_2015_clean) <- colnames(df_2014_clean)
+colnames(df_2016_clean) <- colnames(df_2014_clean)
+colnames(df_2017_clean) <- colnames(df_2014_clean)
+colnames(df_2018_clean) <- colnames(df_2014_clean)
 
-# List of relevant columns for the analysis
-relevant_columns <- c("Stock Code", "Revenue", "Revenue.Growth", "Cost.of.Revenue", "Gross.Profit", 
-                      "R.D.Expenses", "SG.A.Expense", "Operating.Income", "Interest.Expense", 
-                      "Debt.Growth", "EPS", "Free.Cash.Flow", "Net.Income", "Cash.and.cash.equivalents", 
-                      "Total.assets", "Total.liabilities", "Total.shareholders.equity", 
-                      "Market.Cap", "Enterprise.Value", "PE.ratio", "Price.to.Sales.Ratio", 
-                      "Dividend.Yield", "Sector", "Class")
+# Rename the first column in each dataset to "StockCode"
+colnames(df_2014_clean)[1] <- "StockCode"
+colnames(df_2015_clean)[1] <- "StockCode"
+colnames(df_2016_clean)[1] <- "StockCode"
+colnames(df_2017_clean)[1] <- "StockCode"
+colnames(df_2018_clean)[1] <- "StockCode"
 
-# Select only the relevant columns
-data_relevant <- data %>%
-  select(all_of(relevant_columns))
+# Combine the data for Procter & Gamble (PG) for all years
+df <- rbind(df_2014_clean[df_2014_clean$StockCode == 'PG', ], 
+            df_2015_clean[df_2015_clean$StockCode == 'PG', ], 
+            df_2016_clean[df_2016_clean$StockCode == 'PG', ], 
+            df_2017_clean[df_2017_clean$StockCode == 'PG', ], 
+            df_2018_clean[df_2018_clean$StockCode == 'PG', ])
 
-# Handle missing data (drop rows with NAs)
-data_clean <- na.omit(data_relevant)
+colnames(df_2018_clean)
 
-# Filter out extreme values for Revenue and Revenue Growth (outliers)
-data_filtered <- data_clean %>%
-  filter(Revenue <= 1e11, Revenue.Growth <= 10)  # Adjust thresholds for outliers in Revenue and Revenue Growth
+# Visualizing financial indicators (1st visualization: Quick Ratio over years)
+ggplot(df, aes(x = factor(2014:2018), y = quickRatio)) + 
+  geom_bar(stat="identity", fill="skyblue") +
+  labs(title = "Quick Ratio Analysis for P&G (2014-2018)", 
+       x = "Year", y = "Quick Ratio")
 
-# Check the structure of the cleaned dataset
-str(data_filtered)
+print(df$quickRatio)
 
-
-
-# 2. Grouping and Summarizing Data
-# Create bins for Revenue Growth based on predefined ranges
-data_filtered$Revenue_Growth_Category <- cut(data_filtered$Revenue.Growth,
-                                              breaks = c(-Inf, -0.1, 0, 0.1, 0.2, Inf),
-                                              labels = c("Negative Growth", "Small Growth", "Stable", "Moderate Growth", "High Growth"),
-                                              right = FALSE)
-
-# Group and summarize Revenue Growth by the categories
-summary_by_growth_category <- data_filtered %>%
-  group_by(Revenue_Growth_Category) %>%
-  summarise(
-    Min = min(Revenue.Growth, na.rm = TRUE),
-    Q1 = quantile(Revenue.Growth, 0.25, na.rm = TRUE),
-    Median = median(Revenue.Growth, na.rm = TRUE),
-    Mean = mean(Revenue.Growth, na.rm = TRUE),
-    Q3 = quantile(Revenue.Growth, 0.75, na.rm = TRUE),
-    Max = max(Revenue.Growth, na.rm = TRUE)
-  )
-
-# Display the summary table by Revenue Growth category
-print(summary_by_growth_category)
+# Visualizing financial indicators (2nd visualization: Debt to Equity Ratio over years)
+ggplot(df, aes(x = factor(2014:2018), y = debtEquityRatio)) + 
+  geom_bar(stat="identity", fill="red") +
+  labs(title = "Debt to Equity Ratio for P&G (2014-2018)", 
+       x = "Year", y = "Debt to Equity Ratio")
+print(df$debtEquityRatio)
 
 
-# 3. Visualizations
-# a. Revenue Growth Distribution by Sector
-# Bar plot for Revenue Growth categories by Sector
-ggplot(data_filtered, aes(x = Revenue_Growth_Category, fill = Sector)) +
-  geom_bar(position = "dodge") +
-  labs(title = "Revenue Growth Distribution by Sector",
-       x = "Revenue Growth Category", y = "Count") +
-  theme_minimal()
+# Combine all companies' data (make sure they have the same structure and columns)
+df_combined <- rbind(df_2014_clean, df_2015_clean, df_2016_clean, df_2017_clean, df_2018_clean)
 
-# b. Violin Plot for Revenue Growth by Sector
-# Violin plot for Revenue Growth by Sector
-ggplot(data_filtered, aes(x = Sector, y = Revenue.Growth, fill = Sector)) +
-  geom_violin() +
-  labs(title = "Violin Plot of Revenue Growth by Sector",
-       x = "Sector", y = "Revenue Growth") +
-  theme_minimal() +
-  theme(legend.position = "none")
+# Show number of rows of the combined dataset
+nrow(df_combined)
 
-# c. Box and Whisker Plot for Revenue Growth by Sector (Excluding Outliers)
-# Box and Whisker plot for Revenue Growth by Sector (after excluding outliers)
-Q1 <- quantile(data_filtered$Revenue.Growth, 0.25)
-Q3 <- quantile(data_filtered$Revenue.Growth, 0.75)
-IQR <- IQR(data_filtered$Revenue.Growth)
+# Filter data for all companies (no longer limited to just 'PG')
+df_combined_clean <- df_combined %>%
+  filter(!is.na(Net.Income))  # Remove rows with missing 'Net Income'
 
-# Filter data to exclude outliers based on IQR
-data_filtered_clean <- data_filtered %>%
-  filter(Revenue.Growth > (Q1 - 1.5 * IQR) & Revenue.Growth < (Q3 + 1.5 * IQR))
+# Perform Linear Regression on the expanded dataset
+lm_combined_model <- lm(Net.Income ~ Revenue + Total.assets + EBITDA + Total.liabilities, data = df_combined_clean)
+summary(lm_combined_model)
 
-ggplot(data_filtered_clean, aes(x = Sector, y = Revenue.Growth, fill = Sector)) +
-  geom_boxplot() +
-  labs(title = "Box and Whisker Plot of Revenue Growth by Sector (Excluding Outliers)",
-       x = "Sector", y = "Revenue Growth") +
-  theme_minimal() +
-  theme(legend.position = "none")
+# Visualization: Correlation Matrix
+library(corrplot)
+correlation_matrix <- cor(df_combined_clean %>% select(Revenue, Total.assets, EBITDA, Total.liabilities, Net.Income))
+corrplot(correlation_matrix, method = "circle", type = "upper", tl.col = "black", tl.srt = 45)
 
-# d. Bar Plot for Average Revenue by Sector
-# Calculate the average revenue by sector
-average_revenue_by_sector <- data_filtered %>%
-  group_by(Sector) %>%
-  summarise(Average_Revenue = mean(Revenue, na.rm = TRUE))
+print(correlation_matrix)
 
-# Bar plot for average Revenue by Sector
-ggplot(average_revenue_by_sector, aes(x = Sector, y = Average_Revenue, fill = Sector)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Average Revenue by Sector (No Outliers)",
-       x = "Sector", y = "Average Revenue") +
-  theme_minimal() +
-  theme(legend.position = "none")
+# Handling Outliers: Identifying extreme outliers and removing them
+outliers <- df_combined_clean %>%
+  filter(Net.Income > quantile(Net.Income, 0.99) | Net.Income < quantile(Net.Income, 0.01)) 
+print(outliers)  # View extreme values for "Net Income"
 
+# Remove outliers from the dataset
+df_no_outliers <- df_combined_clean %>%
+  filter(!(Net.Income > quantile(Net.Income, 0.99) | Net.Income < quantile(Net.Income, 0.01)))
 
-# 4. Modeling
-# a. Linear Regression Model to Predict Revenue
-# Fit a linear regression model to predict Revenue based on financial metrics
-lm_model <- lm(Revenue ~ Cost.of.Revenue + Gross.Profit + Operating.Income, data = data_clean)
+# Visualize after cleaning (3rd visualization: Net Income distribution)
+ggplot(df_no_outliers, aes(x = Net.Income)) + 
+  geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+  labs(title = "Net Income Distribution After Removing Outliers", x = "Net Income", y = "Frequency")
 
-# View the summary of the linear model
-summary(lm_model)
+# Summarize the net income without outliers
+summary(df_no_outliers$Net.Income)
 
-# Plot the residuals of the linear model (after excluding outliers)
-plot(lm_model$residuals, main="Residuals of Linear Model", ylab="Residuals", col="red")
+# Final model: Training and Testing a Linear Regression Model for Predicting 'Net Income'
+# Train-test split
+set.seed(42)
+train_index <- sample(1:nrow(df_no_outliers), 0.7 * nrow(df_no_outliers))  # 70% for training
+train_data <- df_no_outliers[train_index, ]
+test_data <- df_no_outliers[-train_index, ]
 
-# b. Logistic Regression Model to Predict Class
-# Fit a logistic regression model to predict Class
-glm_model <- glm(Class ~ Revenue + Revenue.Growth + Gross.Profit + Operating.Income, 
-                 family = binomial(link = "logit"), data = data_clean)
+# Train the model
+lm_model_final <- lm(Net.Income ~ Revenue + Total.assets + EBITDA + Total.liabilities, data = train_data)
+summary(lm_model_final)
 
-# View the summary of the logistic model
-summary(glm_model)
+# Prediction
+predictions <- predict(lm_model_final, newdata = test_data)
 
-# Predict the probabilities and classify based on threshold
-predicted_probs <- predict(glm_model, type = "response")
-predicted_class <- ifelse(predicted_probs > 0.5, 1, 0)
+# Evaluate the model
+mse <- mean((predictions - test_data$Net.Income)^2)  # Mean Squared Error
+rmse <- sqrt(mse)  # Root Mean Squared Error
+print(paste("RMSE: ", rmse))
 
-# Confusion matrix for evaluating the logistic regression model's performance
-confusion_matrix <- table(predicted_class, data_clean$Class)
-print(confusion_matrix)
-
-# Evaluate accuracy of the logistic regression model
-accuracy <- mean(predicted_class == data_clean$Class)
-print(paste("Accuracy: ", accuracy))
-
-# 5. Statistical Analysis: ANOVA
-# Perform ANOVA to test if Revenue Growth differs significantly across sectors
-anova_result <- aov(Revenue.Growth ~ Sector, data = data_clean)
-
-# View the ANOVA summary
-summary(anova_result)
-
+summary(test_data$Net.Income)
 
