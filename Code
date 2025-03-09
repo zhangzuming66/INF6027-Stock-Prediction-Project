@@ -28,30 +28,43 @@ colnames(df_2016_clean)[1] <- "StockCode"
 colnames(df_2017_clean)[1] <- "StockCode"
 colnames(df_2018_clean)[1] <- "StockCode"
 
-# Combine the data for Procter & Gamble (PG) for all years
-df <- rbind(df_2014_clean[df_2014_clean$StockCode == 'PG', ], 
-            df_2015_clean[df_2015_clean$StockCode == 'PG', ], 
-            df_2016_clean[df_2016_clean$StockCode == 'PG', ], 
-            df_2017_clean[df_2017_clean$StockCode == 'PG', ], 
-            df_2018_clean[df_2018_clean$StockCode == 'PG', ])
+# Add a "Year" column to each dataset
+df_2014_clean$Year <- 2014
+df_2015_clean$Year <- 2015
+df_2016_clean$Year <- 2016
+df_2017_clean$Year <- 2017
+df_2018_clean$Year <- 2018
 
-colnames(df_2018_clean)
+# Combine data from all years for all companies
+df_all <- rbind(df_2014_clean, df_2015_clean, df_2016_clean, df_2017_clean, df_2018_clean)
 
-# Visualizing financial indicators (1st visualization: Quick Ratio over years)
-ggplot(df, aes(x = factor(2014:2018), y = quickRatio)) + 
-  geom_bar(stat="identity", fill="skyblue") +
-  labs(title = "Quick Ratio Analysis for P&G (2014-2018)", 
-       x = "Year", y = "Quick Ratio")
+# Calculate the average Quick Ratio and Debt to Equity Ratio per year
+df_avg <- df_all %>% 
+  group_by(Year) %>% 
+  summarize(
+    avg_quickRatio = mean(quickRatio, na.rm = TRUE),
+    avg_debtEquityRatio = mean(debtEquityRatio, na.rm = TRUE)
+  )
 
-print(df$quickRatio)
+# Visualizing financial indicators: Average Quick Ratio over years
+ggplot(df_avg, aes(x = factor(Year), y = avg_quickRatio)) + 
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(
+    title = "Average Quick Ratio Analysis (All Companies, 2014-2018)", 
+    x = "Year", 
+    y = "Average Quick Ratio"
+  )
+print(df_avg$avg_quickRatio)
 
-# Visualizing financial indicators (2nd visualization: Debt to Equity Ratio over years)
-ggplot(df, aes(x = factor(2014:2018), y = debtEquityRatio)) + 
-  geom_bar(stat="identity", fill="red") +
-  labs(title = "Debt to Equity Ratio for P&G (2014-2018)", 
-       x = "Year", y = "Debt to Equity Ratio")
-print(df$debtEquityRatio)
-
+# Visualizing financial indicators: Average Debt to Equity Ratio over years
+ggplot(df_avg, aes(x = factor(Year), y = avg_debtEquityRatio)) + 
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Average Debt to Equity Ratio (All Companies, 2014-2018)", 
+    x = "Year", 
+    y = "Average Debt to Equity Ratio"
+  )
+print(df_avg$avg_debtEquityRatio)
 
 # Combine all companies' data (make sure they have the same structure and columns)
 df_combined <- rbind(df_2014_clean, df_2015_clean, df_2016_clean, df_2017_clean, df_2018_clean)
@@ -59,7 +72,7 @@ df_combined <- rbind(df_2014_clean, df_2015_clean, df_2016_clean, df_2017_clean,
 # Show number of rows of the combined dataset
 nrow(df_combined)
 
-# Filter data for all companies (no longer limited to just 'PG')
+# Filter data for all companies
 df_combined_clean <- df_combined %>%
   filter(!is.na(Net.Income))  # Remove rows with missing 'Net Income'
 
